@@ -117,3 +117,23 @@ def test_invalid_engine_and_timeout_rejected(monkeypatch):
     monkeypatch.setenv('WATCH_GEMINI_TIMEOUT', '-5')
     with pytest.raises(config.ConfigError, match='WATCH_GEMINI_TIMEOUT'):
         config.get_config()
+
+
+def test_malformed_project_env_is_ignored(monkeypatch, tmp_path):
+    monkeypatch.delenv('GEMINI_API_KEY', raising=False)
+    monkeypatch.delenv('GROQ_API_KEY', raising=False)
+    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+    monkeypatch.setattr(config, 'CONFIG_FILE', tmp_path / 'missing.env')
+    (tmp_path / '.env').write_text('FOO="a" b\n')
+    monkeypatch.chdir(tmp_path)
+    assert config.load_gemini_key() is None
+    assert config.load_api_key() == (None, None)
+
+
+def test_malformed_user_config_still_raises(monkeypatch, tmp_path):
+    monkeypatch.delenv('GEMINI_API_KEY', raising=False)
+    bad = tmp_path / 'user.env'
+    bad.write_text('KEY="oops\n')
+    monkeypatch.setattr(config, 'CONFIG_FILE', bad)
+    with pytest.raises(config.ConfigError):
+        config.load_gemini_key()

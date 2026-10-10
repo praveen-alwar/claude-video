@@ -64,6 +64,14 @@ def read_env_file(path: Path | None = None) -> dict[str, str]:
     return parse_env(read_env_text(path), path)
 
 
+def read_project_env(path: Path) -> dict[str, str]:
+    """A project .env belongs to another tool: ignore it when unreadable or malformed."""
+    try:
+        return read_env_file(path)
+    except ConfigError:
+        return {}
+
+
 def write_settings(values: dict[str, str], path: Path | None = None) -> None:
     """Replace all assignments for these keys, preserving other lines and comments."""
     path = CONFIG_FILE if path is None else path
@@ -100,10 +108,9 @@ def load_api_key(preferred: str | None = None) -> tuple[str | None, str | None]:
             continue
         value = os.environ.get(name, '').strip()
         if not value:
-            for path in (CONFIG_FILE, Path.cwd() / '.env'):
-                value = read_env_file(path).get(name, '').strip()
-                if value:
-                    break
+            value = read_env_file(CONFIG_FILE).get(name, '').strip()
+            if not value:
+                value = read_project_env(Path.cwd() / '.env').get(name, '').strip()
         if value:
             return backend, value
     return None, None
@@ -113,10 +120,9 @@ def load_gemini_key() -> str | None:
     """Environment, then the user config, then a project .env; never logged."""
     value = os.environ.get('GEMINI_API_KEY', '').strip()
     if not value:
-        for path in (CONFIG_FILE, Path.cwd() / '.env'):
-            value = read_env_file(path).get('GEMINI_API_KEY', '').strip()
-            if value:
-                break
+        value = read_env_file(CONFIG_FILE).get('GEMINI_API_KEY', '').strip()
+        if not value:
+            value = read_project_env(Path.cwd() / '.env').get('GEMINI_API_KEY', '').strip()
     return value or None
 
 
